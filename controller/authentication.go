@@ -29,11 +29,11 @@ var (
 // Authenticate authenticates the application with the user's account
 // so that the application can interact with Spotify and their API on
 // the user's behalf.
-func Authenticate() {
+func authenticate() {
 	var client *spotify.Client
 	var playerState *spotify.PlayerState
 
-	http.HandleFunc("/redirect", CompleteAuth)
+	http.HandleFunc("/redirect", completeAuth)
 
 	go func() {
 		// Opens the authorization URL in the user's browser of choice,
@@ -71,7 +71,7 @@ func Authenticate() {
 // cached in a file on disk in plaintext (this is a Hackweek project, not a piece of bank
 // code) so that the user doesn't have to reauthenticate every time they want to use
 // the CLI.
-func CompleteAuth(response http.ResponseWriter, request *http.Request) {
+func completeAuth(response http.ResponseWriter, request *http.Request) {
 	println("About to finish authorization")
 	tok, err := auth.Token(state, request)
 	if err != nil {
