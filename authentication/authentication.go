@@ -16,6 +16,7 @@ import (
 )
 
 const redirectURI = "http://localhost:8080/redirect"
+
 // TokFilePath is the path that the OAuth2 token is stored at.
 var TokFilePath string = os.TempDir() + "tok.txt"
 
@@ -39,9 +40,8 @@ func authenticate() *spotify.Client {
 		// Opens the authorization URL in the user's browser of choice,
 		// assuming OS X style command.
 		url := auth.AuthURL(state)
-		
-		// TODO: Make this a generic open command so the program can
-		// be run on any machine.
+
+		// TODO: Make this a generic open command so the program can be run on any machine.
 		command := exec.Command("open", url)
 		if err := command.Start(); err != nil {
 			log.Fatal(err)
@@ -49,7 +49,7 @@ func authenticate() *spotify.Client {
 	}()
 
 	go http.ListenAndServe(":8080", nil)
-	client := <- ch
+	client := <-ch
 	return client
 }
 
@@ -91,6 +91,9 @@ func completeAuth(response http.ResponseWriter, request *http.Request) {
 // NewClient constructs a new Spotify client out of the cached OAuth2 token.
 // The client is used to actually interact with Spotify.
 func NewClient() *spotify.Client {
+	if _, present := os.LookupEnv("SPOTIFY_ID"); !present {
+		log.Fatal("You haven't set your environment variables correctly! See the README for more details.")
+	}
 	var client *spotify.Client
 	var tok []byte
 	var err error

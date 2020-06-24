@@ -2,78 +2,114 @@ package menus
 
 import (
 	"fmt"
-	"log"
+	"github.com/Hawkbawk/spotify-cli/types"
+	"os"
 	"strings"
 
 	"github.com/manifoldco/promptui"
 	"github.com/zmb3/spotify"
 )
+
 // Maximum number of search results that a query can get.
 var maxNumResults int = 20
+
+// searchTemplate is the template that is used by when
+// rendering the default search menu.
+var searchTemplate = promptui.SelectTemplates{
+	Label:    "{{ . | green | bold }}",
+	Active:   "{{ . | cyan | bold }}",
+	Inactive: "{{ . | green | faint }}",
+	Help:     "Movement: ← ↑ → ↓  ||  h j k l\tSearch: \"/\"",
+	FuncMap:  promptui.FuncMap,
+}
+
+// trackResultsTemplate is the template that is used when
+// rendering the results of searching for a track.
+var trackResultsTemplate = promptui.SelectTemplates{
+	Label:    "{{ . | white | bold }}",
+	Active:   "{{ .Title | cyan | bold }} {{ \"by:\" | red | bold }} {{ .Artist | cyan | bold }}",
+	Inactive: "{{ .Title | green | faint }} {{ \"by:\" | red | faint }} {{ .Artist | green | faint }}",
+	Help:     "Movement: ← ↑ → ↓  ||  h j k l",
+	Selected: " ✅ {{ .Title | cyan | bold }} {{ \"by:\" | red | bold}} {{ .Artist | cyan | bold }}",
+	FuncMap:  promptui.FuncMap,
+}
+
+var queryTemplate = promptui.PromptTemplates{
+	Prompt: "{{ . | white | bold }}",
+	Success: "",
+	Valid: "{{ . | white | bold }}\t",
+}
+
 // DisplaySearchMenu displays a menu that allows the user
 // to search for a specific track on Spotify, then view the results.
 func DisplaySearchMenu(client *spotify.Client) {
 	prompt := promptui.Select{
-		Label: "What do you want to search for?",
-		Items: []string{"Track", "Artist"},
+		Label:     "What do you want to search for?",
+		Items:     []string{"Track", "Artist"},
+		Templates: &searchTemplate,
 	}
 
-	_, result, _ := prompt.Run()
-	
-	switch result {
+	_, action, err := prompt.Run()
+
+	if err != nil {
+		os.Exit(0)
+	}
+
+	switch action {
 	case "Track":
-		prompt := promptui.Prompt {
+		prompt := promptui.Prompt{
 			Label: "What track do you want to search for?",
+			Templates: &queryTemplate,
 		}
-		result, err := prompt.Run()
+		query, err := prompt.Run()
 		if err != nil {
-			log.Fatal("Exiting...")
+			os.Exit(0)
 		}
-		searchResults := searchForTrack(result, client)
+		searchResults := searchForTrack(query, client)
 		desiredTrack := displayTrackResults(searchResults, client)
 		confirmAddTrackToQueue(desiredTrack, client)
 	case "Artist":
 		fmt.Println("Not yet implemented.")
 	}
-	
+
 }
 
 // DisplayTrackResults displays the results of searching for a track
 // using promptui
 func displayTrackResults(results []spotify.SimpleTrack, client *spotify.Client) *spotify.SimpleTrack {
-	tracks := make([]string, maxNumResults)
-	for i, track := range(results) {
-		result := strings.Builder{}
-		result.Write([]byte(track.Name))
-		result.Write([]byte(" by: "))
-		for _, artist := range(track.Artists) {
-			result.WriteByte(' ')
-			result.Write([]byte(artist.Name))
-		}
-		tracks[i] = result.String()
-	}
-	slct := promptui.Select{
-		Label: "Track Search Results",
-		Items: tracks,
+	tracks := make([]types.Track, len(results))
+	for i, track := range results {
+		tracks[i] = types.NewTrack(&track)
 	}
 
-	index, _, err := slct.Run()
+	prompt := promptui.Select{
+		Label:     "Track Search Results",
+		Items:     tracks,
+		Templates: &trackResultsTemplate,
+		Searcher: func(input string, index int) bool {
+			existsInTitle := strings.Contains(strings.ToLower(tracks[index].Title), strings.ToLower(input))
+			existsInArtist := strings.Contains(strings.ToLower(tracks[index].Artist), strings.ToLower(input))
+			return existsInArtist || existsInTitle
+		},
+	}
+
+	index, _, err := prompt.Run()
 
 	if err != nil {
-		log.Fatal("Exiting...")
+		os.Exit(0)
 	}
 
 	return &results[index]
-	
+
 }
 
 // confirmAddTrackToQueue confirms if a user wants to add the passed in
 // track to their Spotify queue.
 func confirmAddTrackToQueue(track *spotify.SimpleTrack, client *spotify.Client) {
-	prompt := promptui.Prompt {
-		Label: "Do you want to add " + track.Name + " to your queue?",
+	prompt := promptui.Prompt{
+		Label:     "Do you want to add " + track.Name + " to your queue?",
 		IsConfirm: true,
-		Default: "y",
+		Default:   "y",
 	}
 
 	_, err := prompt.Run()
@@ -82,10 +118,10 @@ func confirmAddTrackToQueue(track *spotify.SimpleTrack, client *spotify.Client) 
 		client.QueueSong(track.ID)
 		fmt.Println("Added song " + track.Name + " to your queue!")
 	} else {
-		log.Fatal("Exiting...")
+		os.Exit(0)
 	}
 
-	DisplayDefaultMenu(client)
+	DisplayHomeMenu(client)
 }
 
 // searchForTrack searches Spotify for a track who matches the keyword
@@ -94,10 +130,10 @@ func searchForTrack(query string, client *spotify.Client) []spotify.SimpleTrack 
 	options := &spotify.Options{Limit: &maxNumResults}
 	searchResult, err := client.SearchOpt(query, spotify.SearchTypeTrack, options)
 	if err != nil {
-		log.Fatal(err)
+		os.Exit(0)
 	}
-	results := make([]spotify.SimpleTrack, maxNumResults)
-	for i, item := range(searchResult.Tracks.Tracks) {
+	results := make([]spotify.SimpleTrack, len(searchResult.Tracks.Tracks))
+	for i, item := range searchResult.Tracks.Tracks {
 		results[i] = item.SimpleTrack
 	}
 	return results

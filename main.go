@@ -15,7 +15,7 @@ func main() {
 	obtainPermission()
 
 	client := authentication.NewClient()
-	menus.DisplayDefaultMenu(client)
+	menus.DisplayHomeMenu(client)
 
 }
 
