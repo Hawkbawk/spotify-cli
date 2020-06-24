@@ -13,3 +13,6 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Token text file for storing OAuth2 Token
+tok.txt

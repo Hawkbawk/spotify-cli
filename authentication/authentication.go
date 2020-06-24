@@ -1,21 +1,23 @@
-package controller
+package authentication
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/zmb3/spotify"
+	"golang.org/x/oauth2"
 )
 
 const redirectURI = "http://localhost:8080/redirect"
-const tokFilePath = "resources/tok.txt"
+// TokFilePath is the path that the OAuth2 token is stored at.
+var TokFilePath string = os.TempDir() + "tok.txt"
 
 var (
 	auth = spotify.NewAuthenticator(redirectURI,
@@ -29,11 +31,9 @@ var (
 // Authenticate authenticates the application with the user's account
 // so that the application can interact with Spotify and their API on
 // the user's behalf.
-func authenticate() {
-	var client *spotify.Client
-	var playerState *spotify.PlayerState
+func authenticate() *spotify.Client {
 
-	http.HandleFunc("/redirect", completeAuth)
+	go http.HandleFunc("/redirect", completeAuth)
 
 	go func() {
 		// Opens the authorization URL in the user's browser of choice,
@@ -46,23 +46,11 @@ func authenticate() {
 		if err := command.Start(); err != nil {
 			log.Fatal(err)
 		}
-
-		client = <-ch
-
-		user, err := client.CurrentUser()
-		if err != nil {
-			fmt.Println(err)
-		}
-		playerState, err = client.PlayerState()
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println("You are logged in as User ", user.ID)
-
-		fmt.Printf("Found device of type %s (%s) for playback\n", playerState.Device.Type, playerState.Device.Name)
 	}()
 
-	http.ListenAndServe(":8080", nil)
+	go http.ListenAndServe(":8080", nil)
+	client := <- ch
+	return client
 }
 
 // CompleteAuth is called after the user has been redirected to localhost:8080/redirect
@@ -72,7 +60,6 @@ func authenticate() {
 // code) so that the user doesn't have to reauthenticate every time they want to use
 // the CLI.
 func completeAuth(response http.ResponseWriter, request *http.Request) {
-	println("About to finish authorization")
 	tok, err := auth.Token(state, request)
 	if err != nil {
 		http.Error(response, "Couldn't get valid token from Spotify", http.StatusForbidden)
@@ -88,16 +75,34 @@ func completeAuth(response http.ResponseWriter, request *http.Request) {
 	// TODO: Maybe there's a better way to safely store this token on the machine?
 	jsonTok, err := json.Marshal(tok)
 	syscall.Umask(0177)
-	if err := ioutil.WriteFile(tokFilePath, jsonTok, 0700); err != nil {
+	if err := ioutil.WriteFile(TokFilePath, jsonTok, 0700); err != nil {
 		log.Fatal("Couldn't stash OAuth2 token. Error: ", err)
 	}
 
 	// Display a success message on the redirect page
 	// and send the finished client over the channel.
 	client := auth.NewClient(tok)
-	fmt.Println("Successfully logged in")
 	data, err := ioutil.ReadFile("resources/home.html")
 	io.WriteString(response, string(data))
 	ch <- &client
 
+}
+
+// NewClient constructs a new Spotify client out of the cached OAuth2 token.
+// The client is used to actually interact with Spotify.
+func NewClient() *spotify.Client {
+	var client *spotify.Client
+	var tok []byte
+	var err error
+	if tok, err = ioutil.ReadFile(TokFilePath); err != nil {
+		client = authenticate()
+	} else {
+		var token *oauth2.Token = &oauth2.Token{}
+		if err := json.Unmarshal(tok, token); err != nil {
+			log.Fatal(err)
+		}
+		temp := auth.NewClient(token)
+		client = &temp
+	}
+	return client
 }
