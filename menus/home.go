@@ -13,35 +13,39 @@ import (
 // A list of all the possible actions a user can take
 // on the default menu.
 var (
-	togglePlayback types.Action = types.Action{
+	togglePlayback = types.Action{
 		Action: "Toggle Playback",
 		Icon:   "⏯️ ",
 	}
-	next types.Action = types.Action{
+	next = types.Action{
 		Action: "Next Song",
 		Icon:   "⏭️ ",
 	}
-	previous types.Action = types.Action{
+	previous = types.Action{
 		Action: "Previous Song",
 		Icon:   "⏮️ ",
 	}
-	search types.Action = types.Action{
+	playlists = types.Action{
+		Action: "Select Playlist",
+		Icon:   "💿",
+	}
+	search = types.Action{
 		Action: "Search Spotify",
 		Icon:   "🔎",
 	}
-	quit types.Action = types.Action{
+	quit = types.Action{
 		Action: "Quit Program",
 		Icon:   "🚫",
 	}
 )
 
 // The template for the default menu
-var homeMenuTemplate promptui.SelectTemplates = promptui.SelectTemplates{
+var homeMenuTemplate = promptui.SelectTemplates{
 	Label:    "🎼   {{ .Title | cyan }} {{ \"by:\" | red }} {{ .Artist | green }}  🎼",
 	Active:   "{{ .Icon }}  {{ .Action | cyan | bold }}",
 	Inactive: "{{ .Icon }}  {{ .Action | green | faint }}",
-	Help:     "Movement: ← ↑ → ↓  ||  h j k l	Search: \"/\"",
-	FuncMap:  promptui.FuncMap,
+	Help: "Movement: ← ↑ → ↓  ||  h j k l	Search: \"/\"",
+	FuncMap: promptui.FuncMap,
 }
 
 // DisplayHomeMenu displays the default menu for the CLI that the user
@@ -49,7 +53,7 @@ var homeMenuTemplate promptui.SelectTemplates = promptui.SelectTemplates{
 // offering playback control, search functionality, and the ability to add
 // tracks/episodes to the user's Spotify queue.
 func DisplayHomeMenu(client *spotify.Client) {
-	actions := []types.Action{togglePlayback, next, previous, search, quit}
+	actions := []types.Action{togglePlayback, next, previous, playlists, search, quit}
 	currentlyPlaying := getCurrentPlayingTrack(client)
 	prompt := promptui.Select{
 		Label: currentlyPlaying,
@@ -70,19 +74,29 @@ func DisplayHomeMenu(client *spotify.Client) {
 	switch i {
 	case 0:
 		if state, _ := client.PlayerState(); state.Playing {
-			client.Pause()
+			err = client.Pause()
 		} else {
-			client.Play()
+			err = client.Play()
+		}
+		if err != nil {
+			log.Fatal("Couldn't adjust playback. Error: " + err.Error())
 		}
 	case 1:
-		client.Next()
+		if err = client.Next(); err != nil {
+			log.Fatal("Couldn't skip forward. Error: " + err.Error())
+		}
 	case 2:
-		client.Previous()
+		if err = client.Previous(); err != nil {
+			log.Fatal("Couldn't skip back. Error: " + err.Error())
+		}
 	case 3:
-		DisplaySearchMenu(client)
+		DisplayPlaylistsMenu(client)
 	case 4:
+		DisplaySearchMenu(client)
+	case 5:
 		os.Exit(0)
 	}
+
 	DisplayHomeMenu(client)
 }
 

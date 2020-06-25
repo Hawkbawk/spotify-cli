@@ -3,15 +3,13 @@ package menus
 import (
 	"fmt"
 	"github.com/Hawkbawk/spotify-cli/types"
+	"log"
 	"os"
 	"strings"
 
 	"github.com/manifoldco/promptui"
 	"github.com/zmb3/spotify"
 )
-
-// Maximum number of search results that a query can get.
-var maxNumResults int = 20
 
 // searchTemplate is the template that is used by when
 // rendering the default search menu.
@@ -35,9 +33,9 @@ var trackResultsTemplate = promptui.SelectTemplates{
 }
 
 var queryTemplate = promptui.PromptTemplates{
-	Prompt: "{{ . | white | bold }}",
+	Prompt:  "{{ . | white | bold }}",
 	Success: "",
-	Valid: "{{ . | white | bold }}\t",
+	Valid:   "{{ . | white | bold }}\t",
 }
 
 // DisplaySearchMenu displays a menu that allows the user
@@ -58,7 +56,7 @@ func DisplaySearchMenu(client *spotify.Client) {
 	switch action {
 	case "Track":
 		prompt := promptui.Prompt{
-			Label: "What track do you want to search for?",
+			Label:     "What track do you want to search for?",
 			Templates: &queryTemplate,
 		}
 		query, err := prompt.Run()
@@ -66,7 +64,7 @@ func DisplaySearchMenu(client *spotify.Client) {
 			os.Exit(0)
 		}
 		searchResults := searchForTrack(query, client)
-		desiredTrack := displayTrackResults(searchResults, client)
+		desiredTrack := displayTrackResults(searchResults)
 		confirmAddTrackToQueue(desiredTrack, client)
 	case "Artist":
 		fmt.Println("Not yet implemented.")
@@ -76,7 +74,7 @@ func DisplaySearchMenu(client *spotify.Client) {
 
 // DisplayTrackResults displays the results of searching for a track
 // using promptui
-func displayTrackResults(results []spotify.SimpleTrack, client *spotify.Client) *spotify.SimpleTrack {
+func displayTrackResults(results []spotify.SimpleTrack) *spotify.SimpleTrack {
 	tracks := make([]types.Track, len(results))
 	for i, track := range results {
 		tracks[i] = types.NewTrack(&track)
@@ -115,7 +113,9 @@ func confirmAddTrackToQueue(track *spotify.SimpleTrack, client *spotify.Client) 
 	_, err := prompt.Run()
 
 	if err == nil {
-		client.QueueSong(track.ID)
+		if err = client.QueueSong(track.ID); err != nil {
+			log.Fatal("Couldn't queue song.")
+		}
 		fmt.Println("Added song " + track.Name + " to your queue!")
 	} else {
 		os.Exit(0)
@@ -127,8 +127,7 @@ func confirmAddTrackToQueue(track *spotify.SimpleTrack, client *spotify.Client) 
 // searchForTrack searches Spotify for a track who matches the keyword
 // specified by query and returns a slice of tracks.
 func searchForTrack(query string, client *spotify.Client) []spotify.SimpleTrack {
-	options := &spotify.Options{Limit: &maxNumResults}
-	searchResult, err := client.SearchOpt(query, spotify.SearchTypeTrack, options)
+	searchResult, err := client.Search(query, spotify.SearchTypeTrack)
 	if err != nil {
 		os.Exit(0)
 	}

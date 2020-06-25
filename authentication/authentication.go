@@ -18,7 +18,7 @@ import (
 const redirectURI = "http://localhost:8080/redirect"
 
 // TokFilePath is the path that the OAuth2 token is stored at.
-var TokFilePath string = os.TempDir() + "tok.txt"
+var TokFilePath = os.TempDir() + "tok.txt"
 
 var (
 	auth = spotify.NewAuthenticator(redirectURI,
@@ -83,7 +83,9 @@ func completeAuth(response http.ResponseWriter, request *http.Request) {
 	// and send the finished client over the channel.
 	client := auth.NewClient(tok)
 	data, err := ioutil.ReadFile("resources/home.html")
-	io.WriteString(response, string(data))
+	if _, err := io.WriteString(response, string(data)); err != nil {
+		log.Fatal("Couldn't build home page. This really shouldn't happen.")
+	}
 	ch <- &client
 
 }
@@ -100,7 +102,7 @@ func NewClient() *spotify.Client {
 	if tok, err = ioutil.ReadFile(TokFilePath); err != nil {
 		client = authenticate()
 	} else {
-		var token *oauth2.Token = &oauth2.Token{}
+		var token = &oauth2.Token{}
 		if err := json.Unmarshal(tok, token); err != nil {
 			log.Fatal(err)
 		}
