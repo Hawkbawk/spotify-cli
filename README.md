@@ -4,8 +4,9 @@
 
 A (barebones) Spotify CLI, done for Hackweek at Instructure, in Go.
 
-Currently supports searching for tracks, artist's, and albums, browsing
-and playing the current user's playlists, and adjusting playback state.
+Currently, supports searching for tracks and artists, browsing
+and playing the current user's playlists, adjusting playback state
+(play, pause, next, previous), and transferring playback to another device.
 
 ## Installation
 

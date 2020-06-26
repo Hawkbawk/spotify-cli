@@ -2,20 +2,19 @@ package menus
 
 import (
 	"fmt"
+	"log"
+	"strings"
+
 	"github.com/manifoldco/promptui"
 	"github.com/zmb3/spotify"
-	"log"
-	"os"
-	"strings"
 )
 
 var (
 	playlistsTemplate = promptui.SelectTemplates{
-		Label:    "{{ . | green | bold }}",
+		Label:    "{{ . | white | bold }}",
 		Active:   "{{ .Name | cyan | bold }}",
 		Inactive: "{{ .Name | green | faint }}",
 		Help:     "Movement: ← ↑ → ↓  ||  h j k l\tSearch: \"/\"",
-		Selected: " ✅ {{ .Name | cyan | bold }}",
 	}
 
 	confirmAddTracksTemplate = promptui.PromptTemplates{
@@ -41,28 +40,34 @@ func DisplayPlaylistsMenu(client *spotify.Client) {
 		Searcher: func(input string, index int) bool {
 			return strings.Contains(strings.ToLower(playlists.Playlists[index].Name), strings.ToLower(input))
 		},
+		HideSelected: true,
 	}
 
 	index, _, err := list.Run()
 
 	if err != nil {
-		os.Exit(0)
+		log.Fatal(err)
 	}
 	desiredPlaylist := playlists.Playlists[index]
+	confirmListenToPlaylist(desiredPlaylist, client)
+	DisplayHomeMenu(client)
+}
+
+func confirmListenToPlaylist(playlist spotify.SimplePlaylist, client *spotify.Client) {
 	prompt := promptui.Prompt{
-		Label:     "Do you want to listen to " + desiredPlaylist.Name + "?",
+		Label:     "Do you want to listen to " + playlist.Name + "?",
 		IsConfirm: true,
 		Default:   "y",
 		Templates: &confirmAddTracksTemplate,
 	}
 
-	_, err = prompt.Run()
+	_, err := prompt.Run()
 
 	if err == nil {
-		fmt.Println("Now listening to " + desiredPlaylist.Name)
+		fmt.Println("Now listening to " + playlist.Name)
 
 		playbackOptions := &spotify.PlayOptions{
-			PlaybackContext: &desiredPlaylist.URI,
+			PlaybackContext: &playlist.URI,
 		}
 		err := client.PlayOpt(playbackOptions)
 		if err != nil {
@@ -70,7 +75,6 @@ func DisplayPlaylistsMenu(client *spotify.Client) {
 		}
 
 	} else {
-		os.Exit(0)
+		log.Fatal(err)
 	}
-	DisplayHomeMenu(client)
 }

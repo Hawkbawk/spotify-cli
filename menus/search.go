@@ -2,11 +2,11 @@ package menus
 
 import (
 	"fmt"
-	"github.com/Hawkbawk/spotify-cli/types"
 	"log"
 	"os"
 	"strings"
 
+	"github.com/Hawkbawk/spotify-cli/types"
 	"github.com/manifoldco/promptui"
 	"github.com/zmb3/spotify"
 )
@@ -14,7 +14,7 @@ import (
 // searchTemplate is the template that is used by when
 // rendering the default search menu.
 var searchTemplate = promptui.SelectTemplates{
-	Label:    "{{ . | green | bold }}",
+	Label:    "{{ . | white | bold }}",
 	Active:   "{{ . | cyan | bold }}",
 	Inactive: "{{ . | green | faint }}",
 	Help:     "Movement: ← ↑ → ↓  ||  h j k l\tSearch: \"/\"",
@@ -27,7 +27,6 @@ var trackResultsTemplate = promptui.SelectTemplates{
 	Active:   "{{ .Title | cyan | bold }} {{ \"by:\" | red | bold }} {{ .Artist | cyan | bold }}",
 	Inactive: "{{ .Title | green | faint }} {{ \"by:\" | red | faint }} {{ .Artist | green | faint }}",
 	Help:     "Movement: ← ↑ → ↓  ||  h j k l",
-	Selected: " ✅ {{ .Title | cyan | bold }} {{ \"by:\" | red | bold}} {{ .Artist | cyan | bold }}",
 }
 
 var artistResultsTemplate = promptui.SelectTemplates{
@@ -35,7 +34,6 @@ var artistResultsTemplate = promptui.SelectTemplates{
 	Active:   "{{ .Name | cyan | bold }}",
 	Inactive: "{{ .Name | green | faint }}",
 	Help:     "Movement: ← ↑ → ↓  ||  h j k l",
-	Selected: " ✅ {{ .Name | cyan | bold }}",
 }
 
 var queryTemplate = promptui.PromptTemplates{
@@ -48,9 +46,10 @@ var queryTemplate = promptui.PromptTemplates{
 // to search for a specific track on Spotify, then view the results.
 func DisplaySearchMenu(client *spotify.Client) {
 	prompt := promptui.Select{
-		Label:     "What do you want to search for?",
-		Items:     []string{"Track", "Artist"},
-		Templates: &searchTemplate,
+		Label:        "What do you want to search for?",
+		Items:        []string{"Track", "Artist"},
+		Templates:    &searchTemplate,
+		HideSelected: true,
 	}
 
 	_, action, err := prompt.Run()
@@ -87,6 +86,8 @@ func DisplaySearchMenu(client *spotify.Client) {
 		confirmListenToArtist(desiredArtist, client)
 	}
 
+	DisplayHomeMenu(client)
+
 }
 
 // DisplayTrackResults displays the results of searching for a track
@@ -106,12 +107,13 @@ func displayTrackResults(results []spotify.SimpleTrack) spotify.SimpleTrack {
 			existsInArtist := strings.Contains(strings.ToLower(tracks[index].Artist), strings.ToLower(input))
 			return existsInArtist || existsInTitle
 		},
+		HideSelected: true,
 	}
 
 	index, _, err := prompt.Run()
 
 	if err != nil {
-		os.Exit(0)
+		log.Fatal(err)
 	}
 
 	return results[index]
@@ -126,12 +128,13 @@ func displayArtistsResults(artists []spotify.SimpleArtist) spotify.SimpleArtist 
 		Searcher: func(input string, index int) bool {
 			return strings.Contains(strings.ToLower(artists[index].Name), strings.ToLower(input))
 		},
+		HideSelected: true,
 	}
 
 	index, _, err := prompt.Run()
 
 	if err != nil {
-		os.Exit(0)
+		log.Fatal(err)
 	}
 
 	return artists[index]
@@ -177,7 +180,7 @@ func confirmListenToArtist(artist spotify.SimpleArtist, client *spotify.Client) 
 			log.Fatal("Couldn't start listening to the specified artist. Error: ", err)
 		}
 	} else {
-		os.Exit(0)
+		log.Fatal(err)
 	}
 
 	DisplayHomeMenu(client)

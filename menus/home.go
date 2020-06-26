@@ -27,11 +27,15 @@ var (
 	}
 	playlists = types.Action{
 		Action: "Select Playlist",
-		Icon:   "💿",
+		Icon:   "📖",
 	}
 	search = types.Action{
 		Action: "Search Spotify",
 		Icon:   "🔎",
+	}
+	devices = types.Action{
+		Action: "List Devices",
+		Icon:   "🖥 ",
 	}
 	quit = types.Action{
 		Action: "Quit Program",
@@ -53,7 +57,7 @@ var homeMenuTemplate = promptui.SelectTemplates{
 // offering playback control, search functionality, and the ability to add
 // tracks/episodes to the user's Spotify queue.
 func DisplayHomeMenu(client *spotify.Client) {
-	actions := []types.Action{togglePlayback, next, previous, playlists, search, quit}
+	actions := []types.Action{togglePlayback, next, previous, playlists, search, devices, quit}
 	currentlyPlaying := getCurrentPlayingTrack(client)
 	prompt := promptui.Select{
 		Label: currentlyPlaying,
@@ -71,8 +75,8 @@ func DisplayHomeMenu(client *spotify.Client) {
 		log.Fatal(err)
 	}
 
-	switch i {
-	case 0:
+	switch actions[i] {
+	case togglePlayback:
 		if state, _ := client.PlayerState(); state.Playing {
 			err = client.Pause()
 		} else {
@@ -81,19 +85,21 @@ func DisplayHomeMenu(client *spotify.Client) {
 		if err != nil {
 			log.Fatal("Couldn't adjust playback. Error: " + err.Error())
 		}
-	case 1:
+	case next:
 		if err = client.Next(); err != nil {
 			log.Fatal("Couldn't skip forward. Error: " + err.Error())
 		}
-	case 2:
+	case previous:
 		if err = client.Previous(); err != nil {
 			log.Fatal("Couldn't skip back. Error: " + err.Error())
 		}
-	case 3:
+	case playlists:
 		DisplayPlaylistsMenu(client)
-	case 4:
+	case search:
 		DisplaySearchMenu(client)
-	case 5:
+	case devices:
+		DisplayDeviceMenu(client)
+	case quit:
 		os.Exit(0)
 	}
 
